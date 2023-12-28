@@ -6,10 +6,8 @@ import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Slice;
-import org.springframework.data.domain.Sort;
+import org.springframework.data.domain.*;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.transaction.annotation.Transactional;
 import study.datajpa.dto.MemberDto;
@@ -272,11 +270,12 @@ class MemberRepositoryTest {
         em.flush();
         em.clear();
 
-        List<Member> members = memberRepository.findAll();
+       /* List<Member> members = memberRepository.findAll();
         for (Member member : members) {
             System.out.println("member = " + member.getUsername());
             System.out.println("member.getTEAM() = " + member.getTeam().getName());
-        }
+        }*/
+        List<Member> memberEntityGraph = memberRepository.findMemberEntityGraph();
     }
 
     @Test
@@ -306,5 +305,50 @@ class MemberRepositoryTest {
     @Test
     public void callCustom(){
         List<Member> result = memberRepository.findMemberCustom();
+    }
+
+    @Test //specification
+    public void specBasic(){
+        Team teamA = new Team("teamA");
+        em.persist(teamA);
+
+        Member m1 = new Member("m1", 0, teamA);
+        Member m2 = new Member("m2", 0, teamA);
+        em.persist(m1);
+        em.persist(m2);
+
+        em.flush();
+        em.clear();
+
+        Specification<Member> spec = MemberSpec.username("m1").and(MemberSpec.teamName("teamA"));
+        List<Member> all = memberRepository.findAll(spec);
+
+        Assertions.assertThat(all.size()).isEqualTo(1);
+
+    }
+
+    @Test //query by example
+    public void queryByExample(){
+        Team teamA = new Team("teamA");
+        em.persist(teamA);
+
+        Member m1 = new Member("m1", 0, teamA);
+        Member m2 = new Member("m2", 0, teamA);
+        em.persist(m1);
+        em.persist(m2);
+
+        em.flush();
+        em.clear();
+
+        Member member = new Member("m1");
+        Team team = new Team("teamA");
+        member.setTeam(team);
+
+        ExampleMatcher matcher = ExampleMatcher.matching().withIgnorePaths("age");
+
+        Example<Member> example = Example.of(member,matcher);
+        List<Member> result = memberRepository.findAll(example);
+
+        assertThat(result.get(0).getUsername()).isEqualTo("m1");
     }
 }
